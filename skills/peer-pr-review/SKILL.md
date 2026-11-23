@@ -58,13 +58,26 @@ Look for duplication in the diff against itself and against the existing codebas
 - literals that repeat and belong in a constant or a shared source (labels, column names, ids)
 Only report real repetition with file:line references on both sides. Three similar lines are not a violation; do not push for abstraction that has no second use.
 
+## Several PRs at once
+
+Launch one subagent per PR in a single turn (they are independent), each told to read this file and run the four checks on its PR only. Wait for all of them, then consolidate as below. Do not summarize a PR you have no report for.
+
 ## Output
 
-Report in the terminal, most serious first:
+Two parts, in this order.
 
-1. **Verdict:** Approve / Approve with nits / Request changes, with one sentence why.
-2. One short section per check, each finding as `file:line` plus the rule or evidence.
-3. **Suggested review comments**, if any, drafted for the author in one plain-text code block, written plainly and kindly.
+**Part 1: report in the terminal.** A table of PRs (number, author, verdict, main finding), then per PR the verdict (Approve / Approve with nits / Request changes, one sentence why) and one short section per check, each finding as `file:line` plus the rule or evidence. Say which findings you verified and which you took from a subagent.
+
+**Part 2: one message per author.** Read each PR's author from the metadata and group the PRs by author. Write one message per author covering all of their PRs, so a person with three PRs gets one message, not three. Format:
+
+- Plain text in a single code block per author, no markdown styling, ready to paste into chat or a PR comment. Put the author's login above the block, outside it.
+- Open with the author's first name (or login if unclear). Do not guess pronouns; address them as "you".
+- One or two lines on what is good and the overall state (CI, Copilot, whether it can merge), then one block per PR headed `#<n> <title>`.
+- Inside each PR, a numbered list of things to fix, with the changes that should happen before merge first, then a line `Optional / follow-up:` for the rest. Each item says what, where (`file:line`) and why in one sentence, and suggests the fix. Leave out anything you cannot point to.
+- Close with ordering advice when PRs are stacked (merge order, rebase after the base merges).
+- Short, plain sentences. Kind and specific; no praise that is not earned.
+
+The user's own PRs, if included, get a report but no message.
 
 Never post a review, comment, approval or resolve a thread on GitHub unless the user asks after seeing the report; a posted review is visible to the whole team and cannot be unsent.
 
