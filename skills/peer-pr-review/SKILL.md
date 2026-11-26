@@ -16,6 +16,8 @@ gh pr view <PR> --json number,url,author,headRefOid
 gh api user --jq .login
 ```
 
+When given a URL, take `owner/repo` from it and use it for every `{owner}/{repo}`, pass `-R owner/repo` to every `gh pr` command, and give it to the subagent; a bare number means the current repo.
+
 **Self mode** when the author is the current user or the user says "self review"; otherwise **peer mode**.
 
 Never check out the PR branch in a checkout other sessions may share. To read code beyond the diff use `git fetch origin pull/<n>/head:refs/pr/<n>` and `git show refs/pr/<n>:<path>`.
