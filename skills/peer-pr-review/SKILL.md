@@ -1,6 +1,6 @@
 ---
 name: peer-pr-review
-description: Review a GitHub pull request for policy compliance, claim accuracy, Copilot review status and DRY, in a Sonnet 5.5 high-effort subagent. Two modes. Peer mode (a teammate's PR) reports in the terminal and drafts a message to the author. Self mode (your own PR) requests a Copilot review if missing, waits for it, and posts the findings as one PR comment. Use whenever the user says review this PR, check PR #123, "can you review <PR URL>", self review, review my PR, or after you open a PR in a repo whose instructions say to self-review, even if they never say "skill".
+description: Review a GitHub pull request for policy compliance, claim accuracy, Copilot review status and DRY, in a Sonnet 5.5 high-effort subagent. Two modes. Peer mode (a teammate's PR) reports in the terminal and drafts a message to the author. Self mode (your own PR) requests a Copilot review if missing, waits for it, and posts the findings as one PR comment. Use whenever the user says review this PR, check PR 123, "can you review <PR URL>", self review, review my PR, or after you open a PR in a repo whose instructions say to self-review, even if they never say "skill".
 ---
 
 # Review a PR
@@ -22,15 +22,15 @@ Never check out the PR branch in a checkout other sessions may share. To read co
 
 ## Step 2 (self mode only): get a Copilot review on the head commit
 
-Copilot's login is `copilot-pull-request-reviewer[bot]` (sometimes `Copilot`); match on the prefix `copilot`.
+Copilot's login is `copilot-pull-request-reviewer[bot]` (sometimes `Copilot`); match on the prefix `copilot`, ignoring case.
 
 1. If a Copilot review exists with `commit_id` equal to `headRefOid`, go to Step 3.
-2. Else, unless Copilot is already in `gh api repos/{owner}/{repo}/pulls/<n>/requested_reviewers`, request it: `gh pr edit <n> --add-reviewer @copilot`. If that fails (Copilot review not enabled for the repo, old `gh`), say so in the comment and go to Step 3.
+2. Else request it: `gh pr edit <n> --add-reviewer @copilot` (safe to repeat; `requested_reviewers` does not list Copilot, so do not check it first). If that fails (Copilot review not enabled for the repo, old `gh`), say so in the comment and go to Step 3.
 3. Wait in the background (`run_in_background`, no foreground sleep), up to 15 minutes:
 
 ```bash
 for i in $(seq 30); do
-  gh api repos/{owner}/{repo}/pulls/<n>/reviews --jq '.[] | select(.user.login|startswith("copilot")) | .commit_id' | grep -q <headRefOid> && exit 0
+  gh api repos/{owner}/{repo}/pulls/<n>/reviews --paginate --jq '.[] | select(.user.login|ascii_downcase|startswith("copilot")) | .commit_id' | grep -q <headRefOid> && exit 0
   sleep 30
 done; exit 1
 ```
@@ -66,7 +66,7 @@ List every concrete claim in the PR title, body, commit messages and code commen
 ### 3. Copilot review and CI
 ```bash
 gh api repos/{owner}/{repo}/pulls/<PR>/reviews --paginate
-gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{isResolved isOutdated path line comments(first:5){nodes{author{login} body}}}}}}}' -f o=<owner> -f r=<repo> -F n=<PR>
+gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{isResolved isOutdated path line comments(first:50){nodes{author{login} body}}}}}}}' -f o=<owner> -f r=<repo> -F n=<PR>
 ```
 Report:
 - **Done?** Did a Copilot review run on the head commit? If commits landed after it, the review is stale.
@@ -102,7 +102,8 @@ Never post a review, comment, approval or resolve a thread in peer mode unless t
 Post one PR comment, and re-runs edit it rather than adding another. The body starts with the marker line `<!-- self-pr-review -->`:
 
 ```bash
-id=$(gh api repos/{owner}/{repo}/issues/<n>/comments --paginate --jq '.[] | select(.body|startswith("<!-- self-pr-review -->")) | .id' | head -1)
+me=$(gh api user --jq .login)
+id=$(gh api repos/{owner}/{repo}/issues/<n>/comments --paginate --jq ".[] | select(.user.login==\"$me\" and (.body|startswith(\"<!-- self-pr-review -->\"))) | .id" | head -1)
 if [ -n "$id" ]; then gh api -X PATCH repos/{owner}/{repo}/issues/comments/$id -F body=@body.md
 else gh pr comment <n> --body-file body.md; fi
 ```
